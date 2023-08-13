@@ -1,0 +1,6 @@
+readability-lxml
+beautifulsoup4
+Markdown
+requests
+openai
+ujson
