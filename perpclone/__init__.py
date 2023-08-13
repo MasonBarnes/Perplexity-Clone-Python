@@ -25,12 +25,15 @@ def generate_search_query(text: str, model="gpt-3.5-turbo") -> str:
         ]
     )["choices"][0]["message"]["content"]
 
-def get_google_search_links(query: str, source_count: int = SOURCE_COUNT) -> list[str]:
+def get_google_search_links(query: str, source_count: int = SOURCE_COUNT, proxies: dict = None) -> list[str]:
     """
     Scrapes the official Google search page using the `requests` module and returns the first `source_count` links.
     """
     url = f"https://www.google.com/search?q={query}"
-    response = requests.get(url)
+    if proxies:
+        response = requests.get(url, proxies=proxies)
+    else:
+        response = requests.get(url)
     soup = BeautifulSoup(response.text, "html.parser")
     link_tags = soup.find_all("a")
     
@@ -52,23 +55,30 @@ def get_google_search_links(query: str, source_count: int = SOURCE_COUNT) -> lis
     
     return filtered_links[:source_count]
 
-def scrape_text_from_links(links: list) -> list[dict]:   
+def scrape_text_from_links(links: list, proxies: dict = None) -> list[dict]:   
     """
     Uses a `ThreadPoolExecutor` to run `scrape_text_from_links` on each link in `links` concurrently, allowing for lightning-fast scraping.
     """ 
     with ThreadPoolExecutor(max_workers=len(links)) as executor:
-        results = list(executor.map(scrape_text_from_link, links))
+        if proxies:
+            results = list(executor.map(scrape_text_from_link, links, [proxies] * len(links)))
+        else:
+            results = list(executor.map(scrape_text_from_link, links))
     
     for i, result in enumerate(results, start=1):
         result["result_number"] = i
 
     return results
     
-def scrape_text_from_link(link: str) -> dict:
+def scrape_text_from_link(link: str, proxies: dict = None) -> dict:
     """
     Uses the `requests` module to scrape the text from a given link, and then uses the `readability-lxml` module along with `BeautifulSoup4` to parse the text into a readable format.
     """
-    response = requests.get(link)
+    if proxies:
+        response = requests.get(link, proxies=proxies)
+    else:
+        response = requests.get(link)
+
     doc = Document(response.text)
     parsed = doc.summary()
     soup = BeautifulSoup(parsed, "html.parser")
@@ -87,17 +97,17 @@ def summarize_text(text: str, model="gpt-3.5-turbo-16k") -> str:
         ]
     )["choices"][0]["message"]["content"]
 
-def search(query) -> tuple[list[str], list[dict]]:
+def search(query: str, proxies: dict = None) -> tuple[list[str], list[dict]]:
     """
     This function takes a query as input, gets top Google search links for the query, and then scrapes the text from the links.
     It returns a tuple containing the list of links and a list of dictionaries. Each dictionary contains the URL and the summarized text from the link.
     """
-    links = get_google_search_links(query)
-    sources = scrape_text_from_links(links)
+    links = get_google_search_links(query, proxies=proxies)
+    sources = scrape_text_from_links(links, proxies=proxies)
 
     return links, sources
 
-def perplexity_clone(query: str, verbose=False) -> str:
+def perplexity_clone(query: str, proxies: dict = None, verbose=False) -> str:
     """
     A clone of Perplexity AI's "Search" feature. This function takes a query as input and returns Markdown formatted text containing a response to the query with cited sources.
     """
@@ -106,7 +116,7 @@ def perplexity_clone(query: str, verbose=False) -> str:
     search_query = generate_search_query(query)
     if verbose:
         print(f"Searching \"{search_query}\"...")
-    links, sources = search(search_query)
+    links, sources = search(search_query, proxies=proxies)
 
     result = openai.ChatCompletion.create(
         model=COMPLETION_MODEL,

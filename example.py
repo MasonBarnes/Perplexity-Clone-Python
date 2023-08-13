@@ -11,7 +11,10 @@ openai.api_key = input("Enter your OpenAI API key: ")
 prompt = input("Enter a prompt: ")
 
 # Send the prompt to the perplexity_clone function
-result = perplexity_clone(prompt, verbose=True)
+result = perplexity_clone(
+    prompt,
+    verbose=True
+)
 
 # Convert the result to HTML and add the prompt as a header
 html = f"<h1>{prompt}</h1>" + markdown.markdown(result.replace("\n", "<br>"))
